@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+<meta charset='utf-8'>
+<meta name='viewport' content='width=device-width,initial-scale=1'>
+<meta property='og:url' content='https://amos-mig.github.io/dns-health-checker-api-demo/'>
+<title>DNS Health Checker</title>
+<style>
+*{box-sizing:border-box;margin:0}
+body{background:#0b0d12;color:#e8eaf0;font:15px/1.55 ui-monospace,Menlo,Consolas,monospace}
+.wrap{max-width:1080px;margin:0 auto;padding:0 20px}
+.banner{background:#10b981;color:#08110d;padding:8px 20px;font-size:13px;text-align:center;font-weight:600}
+header{padding:42px 0 24px}
+h1{font-size:30px;letter-spacing:-.5px}
+h1 em{color:#10b981;font-style:normal}
+.sub{color:#9aa3b2;max-width:660px;margin-top:8px}
+.panel{background:#14171f;border:1px solid #262b36;border-radius:10px}
+#demo{display:grid;grid-template-columns:350px 1fr;overflow:hidden}
+.ctrl{padding:18px;border-right:1px solid #262b36}
+label{display:block;font-size:12px;color:#9aa3b2;text-transform:uppercase;letter-spacing:.8px;margin:14px 0 6px}
+input[type=text]{width:100%;background:#0b0d12;border:1px solid #262b36;color:#e8eaf0;border-radius:6px;padding:9px 11px;font:inherit}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid #262b36;background:#0b0d12;color:#9aa3b2;border-radius:99px;padding:4px 10px;font-size:12px;cursor:pointer;font:inherit}
+.chip.on{border-color:#10b981;color:#10b981}
+.chip.lock{opacity:.45;cursor:not-allowed}
+.go{width:100%;margin-top:16px;background:#10b981;color:#08110d;border:0;border-radius:7px;padding:11px;font:inherit;font-weight:700;cursor:pointer}
+.go:disabled{opacity:.6}
+.out{padding:16px}
+.bar{display:flex;justify-content:space-between;gap:10px;border:1px solid #262b36;border-radius:7px;padding:8px 12px;font-size:13px;margin-bottom:12px;color:#9aa3b2;flex-wrap:wrap}
+.bar b{color:#e8eaf0}
+.bar.ok{border-color:#10b981}.bar.ok b{color:#10b981}
+.bar.drift{border-color:#f59e0b}.bar.drift b{color:#f59e0b}
+.bar.fail,.bar.bad{border-color:#ef4444}.bar.fail b,.bar.bad b{color:#ef4444}
+pre{font-size:12.5px;line-height:1.6;color:#c7cedb;white-space:pre-wrap;word-break:break-word}
+#cmd{color:#9aa3b2;margin-bottom:10px}
+.dis{font-size:12px;color:#9aa3b2;margin-top:10px}
+h2{font-size:18px;margin:36px 0 12px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:8px}
+.card{background:#14171f;border:1px solid #262b36;border-radius:10px;padding:14px}
+.card h3{font-size:14px;margin-bottom:6px}
+.card p{font-size:12.5px;color:#9aa3b2}
+.card.lock{border-style:dashed}
+.snip{padding:16px;margin-bottom:20px}
+.cta{display:inline-block;background:#10b981;color:#08110d;font-weight:700;padding:12px 22px;border-radius:8px;text-decoration:none;margin-bottom:36px}
+footer{border-top:1px solid #262b36;padding:18px 0 32px;color:#9aa3b2;font-size:13px;display:flex;gap:18px;flex-wrap:wrap}
+footer a{color:#9aa3b2}
+.acc{color:#10b981}
+@media(max-width:840px){#demo{grid-template-columns:1fr}.ctrl{border-right:0;border-bottom:1px solid #262b36}}
+</style>
+</head>
+<body>
+<div class='banner'>Live demo — simulated responses, A/AAAA records on 2 of 8 resolvers. The full product does more ↓</div>
+<div class='wrap'>
+<header>
+<h1>DNS <em>Health</em> Checker</h1>
+<p class='sub'>Catch the broken-DNS-before-your-customers moment that round-robin only reveals too late: one Python file that cross-checks every resolver and alerts on drift or failure.</p>
+</header>
+<div class='panel' id='demo'>
+<div class='ctrl'>
+<label for='dom'>domain</label>
+<input id='dom' type='text' value='example.com' spellcheck='false'>
+<label>presets</label>
+<div class='chips'>
+<button class='chip' data-d='example.com'>example.com</button>
+<button class='chip' data-d='google.com'>google.com</button>
+<button class='chip' data-d='example.com' data-f='1'>example.com + drift</button>
+<button class='chip' data-d='nxdomain.fail'>dead domain</button>
+<button class='chip' data-d='bad_host'>invalid name</button>
+</div>
+<label>record types</label>
+<div class='chips'>
+<span class='chip on'>A</span><span class='chip on'>AAAA</span>
+<span class='chip lock' title='in the full kit'>MX 🔒</span><span class='chip lock' title='in the full kit'>TXT 🔒</span><span class='chip lock' title='in the full kit'>NS 🔒</span><span class='chip lock' title='in the full kit'>CNAME 🔒</span>
+</div>
+<label>resolvers</label>
+<div class='chips'>
+<span class='chip on'>8.8.8.8</span><span class='chip on'>1.1.1.1</span>
+<span class='chip lock' title='in the full kit'>9.9.9.9 🔒</span><span class='chip lock' title='in the full kit'>208.67.222.222 🔒</span>
+</div>
+<label style='text-transform:none;letter-spacing:0'><input type='checkbox' id='drift' style='accent-color:#10b981'> inject propagation drift into 1.1.1.1</label>
+<button class='go' id='btn'>Run check ▸</button>
+<p class='dis'>Simulated — the real script queries live resolvers from your machine.</p>
+</div>
+<div class='out'>
+<div class='bar' id='bar'><b>idle</b></div>
+<pre id='cmd'>$ python dns_health.py example.com --json</pre>
+<pre id='out'></pre>
+</div>
+</div>
+<h2>What's inside</h2>
+<div class='cards'>
+<div class='card'><h3>🔁 Cross-resolver drift detection</h3><p>Diffs every record across every resolver. A stale propagation at one DNS provider shows up in seconds — try the drift toggle above.</p></div>
+<div class='card'><h3>🚦 Clean exit codes</h3><p><b>0</b> healthy · <b>2</b> drift · <b>3</b> failure · <b>64</b> bad args. Drops into cron or any monitor without parsing a single line of output.</p></div>
+<div class='card'><h3>🐍 Single file, stdlib only</h3><p>One Python file, zero dependencies beyond the standard library. scp it onto any box and run.</p></div>
+<div class='card lock'><h3>🔒 All 6 record types × 8 resolvers</h3><p>MX, TXT, NS and CNAME checks against the full resolver pool — live above with A/AAAA on 2 resolvers only. In the full kit.</p></div>
+<div class='card lock'><h3>🔒 Timestamped history</h3><p>Every run appends a timestamped entry to a local JSONL log, so slow DNS changes become visible over days. In the full kit.</p></div>
+</div>
+<h2>How it runs</h2>
+<div class='panel snip'>
+<pre># dns_health.py — the whole config surface (5 of ~40 lines in the full kit)
+DOMAINS   = ['example.com', 'api.example.com']
+RESOLVERS = ['8.8.8.8', '1.1.1.1', '9.9.9.9', '208.67.222.222']
+RECORDS   = ['A', 'AAAA', 'MX', 'TXT', 'NS', 'CNAME']
+
+# crontab — alerts on any non-zero exit
+*/10 * * * * python3 /opt/dns_health.py --quiet || mail -s 'DNS drift' you@ops.io
+
+# a run looks like:
+$ python dns_health.py --quiet
+✓ example.com      OK     42ms  drift: none            exit 0
+✗ api.example.com  DRIFT  A @9.9.9.9 ≠ 8.8.8.8         exit 2</pre>
+</div>
+<a class='cta' href='https://amosmign.gumroad.com/l/dns-health-checker-api'>Get the full DNS Health Checker · $29</a>
+<footer>
+<span>DNS Health Checker</span>
+<a href='https://kits.amosmignery.dev'>kits.amosmignery.dev</a>
+<a href='https://github.com/Amos-Mig/dns-health-checker-api-demo'>GitHub</a>
+<a class='acc' href='https://amosmign.gumroad.com/l/dns-health-checker-api'>Get it · $29</a>
+</footer>
+</div>
+<script>
+const $=i=>document.getElementById(i);
+const H=s=>{let h=7;for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))>>>0;return h};
+const hex=n=>(n%65536).toString(16).padStart(4,'0');
+const KNOWN={'example.com':{A:['93.184.216.34'],AAAA:['2606:2800:220:1:248:1893:25c8:1946']},'google.com':{A:['142.250.72.14'],AAAA:['2607:f8b0:4004:c07::71']},'cloudflare.com':{A:['104.16.132.229'],AAAA:['2606:4700::6810:84e5']}};
+function rec(d,t){if(KNOWN[d]&&KNOWN[d][t])return KNOWN[d][t].slice();const h=H(d+t);return t==='A'?[(92+h%120)+'.'+((h>>3)%250+2)+'.'+((h>>7)%250+2)+'.'+((h>>13)%250+2)]:['2606:'+hex(h)+':'+hex(h*3)+':'+hex(h*7)+'::'+(h%9+1)]}
+const MSG={ok:['OK · all resolvers agree','exit 0'],drift:['DRIFT detected','exit 2'],fail:['FAILURE · NXDOMAIN','exit 3'],bad:['validation error','exit 64']};
+function show(b,c){$('out').textContent=JSON.stringify(b,null,2);$('bar').className='bar '+c;$('bar').innerHTML='<b>'+MSG[c][0]+'</b><span>'+MSG[c][1]+' · '+(180+H($('dom').value+c)%420)+'ms wall · simulated — the real script queries live resolvers</span>'}
+function run(){const d=$('dom').value.trim().toLowerCase(),f=$('drift').checked,R=['8.8.8.8','1.1.1.1'];
+$('btn').disabled=true;$('cmd').textContent='$ python dns_health.py '+(d||'<domain>')+' --json'+(f?'   # demo: drift injected':'');
+$('bar').className='bar';$('bar').innerHTML='<b>querying '+R.join(', ')+' …</b>';$('out').textContent='';
+setTimeout(()=>{$('btn').disabled=false;
+if(!/^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$/.test(d))return show({error:"'"+(d||'')+"' is not a valid hostname",exit_code:64},'bad');
+const checks={},dr=[];let mode=/(^|\.)fail|nxdomain|\.invalid/.test(d)?'fail':'ok';
+for(const t of['A','AAAA']){checks[t]={};for(const r of R){const ms=12+H(d+r+t)%44;
+if(mode==='fail'){checks[t][r]={rcode:'NXDOMAIN',ms};continue}
+let a=rec(d,t);
+if(f&&t==='A'&&r==='1.1.1.1'){const o=a[0].split('.');o[3]=String((+o[3]+197)%250);a=[o.join('.')];}
+checks[t][r]={answer:a,ms};}}
+if(f&&mode==='ok'){dr.push('A @1.1.1.1 -> '+checks.A['1.1.1.1'].answer[0]+' but 8.8.8.8 -> '+checks.A['8.8.8.8'].answer[0]);mode='drift';}
+const b={domain:d,ts:new Date().toISOString().replace(/\.\d+/,'Z'),checks:checks,drift:dr};
+if(mode==='ok'){b.status='OK';b.exit_code=0}else if(mode==='drift'){b.status='DRIFT';b.exit_code=2}else{b.status='FAILURE';b.exit_code=3}
+show(b,mode);},520)}
+document.querySelectorAll('[data-d]').forEach(el=>el.onclick=()=>{$('dom').value=el.dataset.d;$('drift').checked=el.dataset.f==='1';run()});
+$('drift').onchange=run;
+$('dom').addEventListener('keydown',e=>{if(e.key==='Enter')run()});
+$('btn').onclick=run;
+run();
+</script>
+</body>
+</html>
